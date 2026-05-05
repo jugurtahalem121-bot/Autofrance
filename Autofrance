@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="fr">
+ <head>
+  <meta charset="UTF-8">
+  <title>France Auto - Facture PRO</title>
+ </head>
+ <body>
+  <div class="section">
+   <select id="docType" onchange="updateDocTitle()"> <option value="facture">FACTURE</option> <option value="bon">BON DE COMMANDE</option> </select>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <style>
+body{font-family:Arial;background:#111;color:#fff;margin:0}
+.container{max-width:1000px;margin:auto;padding:20px}
+h2{text-align:center;color:gold}
+.section{background:#1b1b1b;border:1px solid gold;padding:10px;margin-top:10px}
+input,select{width:100%;padding:10px;margin:5px 0}
+button{width:100%;padding:10px;background:gold;color:#000;font-weight:bold;cursor:pointer}
+.total{text-align:center;font-size:20px;color:gold;margin-top:10px}
+</style>
+  <div class="container">
+   <h2 id="titleDoc">FACTURE PROFESSIONNELLE</h2>
+   <p style="text-align:center">📍 France Auto
+    <br>
+    📞 0769858669 | 📧 franceauto@gmx.fr
+    <br>
+    📍 Dépannage • Vente • Achat • Reprise</p>
+   <div class="section">
+    <input id="client" placeholder="Nom &amp; Prénom client"> <input id="date" type="date">
+   </div>
+   <div class="section">
+    <select id="type" onchange="show();calc()"> <option value="achat">Achat</option> <option value="vente">Vente</option> <option value="reprise">Reprise</option> <option value="depannage">Dépannage</option> </select>
+   </div>
+   <div class="section" id="achat">
+    <input id="a_marque" placeholder="Marque"> <input id="a_model" placeholder="Modèle"> <input id="a_immat" placeholder="Immatriculation"> <input id="a_annee" placeholder="Année"> <input id="a_prix" placeholder="Prix achat">
+   </div>
+   <div class="section" id="vente">
+    <input id="v_marque" placeholder="Marque"> <input id="v_model" placeholder="Modèle"> <input id="v_immat" placeholder="Immatriculation"> <input id="v_annee" placeholder="Année"> <input id="v_prix" placeholder="Prix vente">
+   </div>
+   <div class="section" id="reprise">
+    <input id="r_marque" placeholder="Marque"> <input id="r_model" placeholder="Modèle"> <input id="r_immat" placeholder="Immatriculation"> <input id="r_annee" placeholder="Année"> <input id="mo" placeholder="Main d'œuvre">
+    <div id="pannes"></div>
+    <button onclick="addPanne()">+ Ajouter panne</button>
+   </div>
+   <div class="section" id="depannage">
+    <input id="d_marque" placeholder="Marque"> <input id="d_model" placeholder="Modèle"> <input id="d_immat" placeholder="Immatriculation"> <input id="d_annee" placeholder="Année"> <input id="d_km" placeholder="Distance km"> <input id="d_prix" placeholder="Prix/km"> <input id="wilaya" placeholder="Wilaya"> <input id="daira" placeholder="Daïra">
+   </div>
+   <div class="section">
+    <label> <input type="checkbox" id="tva_check" checked> TVA (20%) </label>
+   </div>
+   <div class="total">
+    HT: <span id="ht">0</span> € | TVA: <span id="tva">0</span> € | TTC: <span id="ttc">0</span> €
+   </div>
+   <button onclick="generatePDF()">GÉNÉRER PDF</button>
+  </div>
+  <div class="section">
+   <label>Logo :</label> <input type="file" id="logoUpload" accept="image/*"> <label>Signature :</label> <input type="file" id="signUpload" accept="image/*">
+  </div>
+  <script>
+  function updateDocTitle(){
+  let type = document.getElementById("docType").value;
+  let title = document.getElementById("titleDoc");
+
+  if(type === "facture"){
+    title.innerText = "FACTURE PROFESSIONNELLE";
+  } else {
+    title.innerText = "BON DE COMMANDE";
+  }
+}
+function show(){
+document.getElementById("achat").style.display = type.value==="achat"?"block":"none";
+document.getElementById("vente").style.display = type.value==="vente"?"block":"none";
+document.getElementById("reprise").style.display = type.value==="reprise"?"block":"none";
+document.getElementById("depannage").style.display = type.value==="depannage"?"block":"none";
+}
+
+function addPanne(){
+let div=document.createElement("div");
+div.innerHTML=`
+<input placeholder="Panne">
+<input placeholder="Pièce">
+<input placeholder="Prix">
+`;
+pannes.appendChild(div);
+}
+
+function calc(){
+let ht=0;
+
+if(type.value==="achat") ht=parseFloat(a_prix.value)||0;
+if(type.value==="vente") ht=parseFloat(v_prix.value)||0;
+
+if(type.value==="reprise"){
+let s=0;
+document.querySelectorAll("#pannes div").forEach(e=>{
+s += parseFloat(e.querySelectorAll("input")[2].value)||0;
+});
+ht = s + (parseFloat(mo.value)||0);
+}
+
+if(type.value==="depannage"){
+ht=(parseFloat(d_km.value)||0)*(parseFloat(d_prix.value)||0);
+}
+
+let tva = 0;
+
+if(document.getElementById("tva_check").checked){
+  tva = ht * 0.2;
+}
+let ttc=ht+tva;
+
+ht = document.getElementById("ht").innerText = ht.toFixed(2);
+document.getElementById("tva").innerText = tva.toFixed(2);
+document.getElementById("ttc").innerText = ttc.toFixed(2);
+}
+
+document.addEventListener("input",calc);
+calc();
+
+let logoBase64 = "";
+let signBase64 = "";
+
+document.getElementById("logoUpload").addEventListener("change", function(e){
+  let file = e.target.files[0]; // الصورة المختارة
+  let reader = new FileReader();
+
+  reader.onload = function(event){
+    logoBase64 = event.target.result; // نحفظ الصورة كنص
+  };
+
+  if(file) reader.readAsDataURL(file);
+});
+
+document.getElementById("signUpload").addEventListener("change", function(e){
+  let file = e.target.files[0];
+  let reader = new FileReader();
+
+  reader.onload = function(event){
+    signBase64 = event.target.result;
+  };
+
+  if(file) reader.readAsDataURL(file);
+});
+
+
+function generatePDF(){
+
+let docType = document.getElementById("docType").value;
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF();
+
+doc.setFontSize(14);
+if(logoBase64){
+  doc.addImage(logoBase64, "PNG", 14, 5, 60, 30);
+} else {
+  doc.text("FRANCE AUTO", 14, 10);
+}
+doc.setFontSize(10)
+doc.text("FRANCE AUTO", 150, 12);
+
+doc.setFontSize(5)
+doc.text("ACHAT.VENTE.REPRISE.DÉPANNAGE", 150, 15);
+// يمين
+doc.text("Tél: 0769858669", 150, 19);
+doc.text("E-mail:franceauto@gmx.fr", 150,23 );
+
+// العنوان
+doc.setFontSize(18);
+doc.text(
+  docType === "facture" ? "FACTURE" : "BON DE COMMANDE",
+  105,
+  30,
+  { align: "center" }
+);
+
+// رقم + تاريخ + عميل
+doc.setFontSize(10);
+doc.text("Numéro: 001", 14, 40);
+doc.text("Date: " + date.value, 14, 45);
+doc.text("Client: " + client.value, 14, 50);
+
+/* TABLE 1 */
+let vehicule=[];
+
+if(type.value==="achat"||type.value==="vente"){
+vehicule=[
+["Marque",a_marque.value||v_marque.value],
+["Modèle",a_model.value||v_model.value],
+["Immatriculation",a_immat.value||v_immat.value],
+["Année",a_annee.value||v_annee.value]
+];
+}
+
+if(type.value==="reprise"){
+vehicule=[
+["Marque",r_marque.value],
+["Modèle",r_model.value],
+["Immatriculation",r_immat.value],
+["Année",r_annee.value]
+];
+}
+
+if(type.value==="depannage"){
+vehicule=[
+["Marque",d_marque.value],
+["Modèle",d_model.value],
+["Immatriculation",d_immat.value],
+["Année",d_annee.value],
+["Wilaya",wilaya.value],
+["Daïra",daira.value]
+];
+}
+
+doc.autoTable({
+startY:60,
+head:[["INFORMATIONS VEHICULE",""]],
+body:vehicule
+});
+
+/* TABLE 2 - FULL DETAILS */
+
+let y = doc.lastAutoTable.finalY + 20;
+
+let details = [
+["Client", client.value],
+["Date", date.value],
+["Type", type.value.toUpperCase()],
+];
+
+if(type.value==="achat"){
+details.push(
+["Prix Achat", a_prix.value+" €"]
+);
+}
+
+if(type.value==="vente"){
+details.push(
+["Prix Vente", v_prix.value+" €"]
+);
+}
+
+if(type.value==="reprise"){
+details.push(
+["Main d'œuvre", mo.value+" €"]
+);
+
+document.querySelectorAll("#pannes div").forEach((e,i)=>{
+let p=e.querySelectorAll("input");
+details.push(
+["Panne "+(i+1), p[0].value],
+["Pièce", p[1].value],
+["Prix", p[2].value+" €"]
+);
+});
+}
+
+if(type.value==="depannage"){
+details.push(
+["Distance", d_km.value+" km"],
+["Prix/km", d_prix.value+" €"],
+);
+}
+
+details.push(
+["----------------","----------------"],
+["HT", document.getElementById("ht").innerText+" €"],
+["TVA", document.getElementById("tva").innerText+" €"],
+["TTC", document.getElementById("ttc").innerText+" €"]
+);
+
+doc.autoTable({
+startY:y,
+head:[["DÉTAILS COMPLETS",""]],
+body:details
+});
+
+let pageHeight = doc.internal.pageSize.height;
+
+if(signBase64){
+  doc.addImage(signBase64, "PNG", 140, pageHeight - 40, 50, 20);
+  doc.text("Signature", 150, pageHeight - 45);
+}
+
+doc.save("FACTURE_FRANCE_AUTO.pdf");
+}
+
+</script>
+ </body>
+</html>
